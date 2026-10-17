@@ -690,11 +690,15 @@ func RepoAssignment(ctx *Context) context.CancelFunc {
 		return nil
 	}
 
+	if !repo.IsNative {
+		ctx.PlainText(http.StatusConflict, "This instance serves native Boughline projects only. Existing Git data must be imported into a new native project.")
+		return nil
+	}
 	if repo.IsNative {
 		ctx.Data["BranchName"] = repo.DefaultBranch
 		ctx.Data["DisableForks"] = true
 		relative := strings.TrimPrefix(ctx.Link, ctx.Repo.RepoLink)
-		allowed := relative == "" || relative == "/settings" || strings.HasPrefix(relative, "/bough/") || relative == "/issues" || strings.HasPrefix(relative, "/issues/") || relative == "/projects" || strings.HasPrefix(relative, "/projects/") || relative == "/milestones" || relative == "/labels" || relative == "/watchers" || relative == "/stars" || relative == "/settings/collaboration" || strings.HasPrefix(relative, "/settings/collaboration/")
+		allowed := relative == "" || relative == "/settings" && ctx.Req.Method == "GET" || strings.HasPrefix(relative, "/bough/") || relative == "/issues" || strings.HasPrefix(relative, "/issues/") || relative == "/projects" || strings.HasPrefix(relative, "/projects/") || relative == "/milestones" || relative == "/labels" || relative == "/watchers" || relative == "/stars" || relative == "/settings/collaboration" || strings.HasPrefix(relative, "/settings/collaboration/")
 		if !allowed {
 			ctx.PlainText(http.StatusConflict, "This project uses Boughline. Open its project home or use the bough client.")
 		}

@@ -57,6 +57,7 @@ the underlying database uses no synchronization.
 
 11. Introducing a blob reference requires a durable repository/principal upload claim or an authorized server-side merge result; knowing a global hash never authorizes copying bytes across repositories or path grants.
 12. Metadata comparisons reject unauthorized changes without revealing their private path names.
+13. Landing load tests exercise the shipped client's bounded randomized retries, so a separate test driver's retry schedule cannot stand in for client behavior.
 
 
 Progress and measured limitations belong in `native/VALIDATION.md`. The earlier
@@ -97,3 +98,27 @@ DAG closure and merge-base comparisons verify the index against a separate model
 (`TestMergeBaseDoesNotWalkUnrelatedMainHistory`,
 `TestReachabilityAndMergeBasesMatchIndependentDAG`). This adds bounded immutable
 index pages per commit in exchange for removing history-sized landing searches.
+
+The next 3,000-submission run completed 1,514 landings before a test worker lost
+150 successive ref CAS races. Every recorded conflict was `ref changed`. The
+harness retried on a fixed 5 ms schedule, unlike the shipped CLI's randomized
+backoff. Its independent retry loop has been removed: distributed tests now land
+through the real `bough` executable. The failed run is preserved in
+`native/integration-fixed-delay-failure.json`; it is not counted as successful.
+Sequential setup denial checks retain raw HTTP errors so their explicit status
+assertions still apply; moving those checks to the CLI initially changed the
+exception type and was corrected before the workload ran.
+
+The real CLI then also exhausted its bounded randomized retry budget after 1,260
+landings. Removing the harness loop was not a complete starvation fix. A slower
+landing can repeatedly lose its CAS while other writers advance the head;
+immutable changesets remain safe to retry, but liveness under a sustained burst
+is not guaranteed. See `native/integration-result-failure.json`. This is a known
+validation limit, not a successful 3,000-landing benchmark.
+
+This fork now has one source-control mode. Project creation always stores native
+metadata and initializes the native backend; no Git repository is initialized.
+Git HTTP and SSH transports reject all requests before source lookup, including
+legacy repositories and push-to-create. Git storage opening, mirrors, Git source
+search, pull-request/release/wiki/Actions/package units are disabled. Existing
+Git data is retained untouched, but cannot be served by this instance.

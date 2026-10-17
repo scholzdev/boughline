@@ -11,8 +11,14 @@ import (
 )
 
 func TestBoughGitTransportGuard(t *testing.T) {
-	_, err := gitrepo.OpenRepository(context.Background(), &repo_model.Repository{IsNative: true, Name: "native", OwnerName: "owner"})
-	if err == nil || !strings.Contains(err.Error(), "native Boughline") {
-		t.Fatal("Git opened native source", err)
+	for _, native := range []bool{false, true} {
+		repo := &repo_model.Repository{IsNative: native, Name: "project", OwnerName: "owner"}
+		_, err := gitrepo.OpenRepository(context.Background(), repo)
+		if err == nil || !strings.Contains(err.Error(), "native Boughline") {
+			t.Fatal("Git storage remained available", native, err)
+		}
+		if _, err = gitrepo.OpenWikiRepository(context.Background(), repo); err == nil {
+			t.Fatal("Git wiki storage remained available", native)
+		}
 	}
 }

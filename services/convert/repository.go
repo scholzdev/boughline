@@ -34,7 +34,6 @@ func innerToRepo(ctx stdCtx.Context, repo *repo_model.Repository, permissionInRe
 		permissionInRepo.Units = repo.Units
 	}
 
-	cloneLink := repo.CloneLink()
 	permission := &api.Permission{
 		Admin: permissionInRepo.AccessMode >= perm.AccessModeAdmin,
 		Push:  permissionInRepo.UnitAccessMode(unit_model.TypeCode) >= perm.AccessModeWrite,
@@ -210,8 +209,8 @@ func innerToRepo(ctx stdCtx.Context, repo *repo_model.Repository, permissionInRe
 		Mirror:                        repo.IsMirror,
 		HTMLURL:                       repo.HTMLURL(),
 		URL:                           repoAPIURL,
-		SSHURL:                        cloneLink.SSH,
-		CloneURL:                      cloneLink.HTTPS,
+		SSHURL:                        "",
+		CloneURL:                      "",
 		OriginalURL:                   repo.SanitizedOriginalURL(),
 		Website:                       repo.Website,
 		Language:                      language,
@@ -233,8 +232,8 @@ func innerToRepo(ctx stdCtx.Context, repo *repo_model.Repository, permissionInRe
 		HasWiki:                       hasWiki,
 		HasWikiContents:               repo.HasWiki(),
 		WikiBranch:                    repo.WikiBranch,
-		WikiSSHURL:                    repo.WikiCloneLink().SSH,
-		WikiCloneURL:                  repo.WikiCloneLink().HTTPS,
+		WikiSSHURL:                    "",
+		WikiCloneURL:                  "",
 		GloballyEditableWiki:          globallyEditableWiki,
 		HasProjects:                   hasProjects,
 		HasReleases:                   hasReleases,

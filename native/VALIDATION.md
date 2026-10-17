@@ -14,6 +14,9 @@ prototype. Validation date: 2026-10-17.
 - Forgejo boundary tests passed with `-tags 'sqlite sqlite_unlock_notify'` in
   `services/boughline`, `modules/gitrepo`, `routers/api/v1/repo`,
   `routers/private`, and `routers/web/repo`, selecting `^TestBough`.
+- The native-only local launcher passed web login, native web/API creation,
+  settings/collaborators, absence of Git clone links/storage, denied Git routes,
+  and real client clone/add/commit/land/update. Persistent restart also passed.
 - Native macOS executable, Linux amd64 executable, and complete Forgejo backend
   built successfully. Forgejo frontend built successfully with Node 24.
 - A disposable cluster used three real CockroachDB 26.2.7 processes, real MinIO,
@@ -28,7 +31,9 @@ prototype. Validation date: 2026-10-17.
 - The graph/v2 cluster completed 128 landings with eight concurrent workers:
   30.914 seconds, 4.140 landings/second, and 401 retried ref conflicts. Every
   worker's final revision remained an ancestor of the final head and its latest
-  file contents were preserved. A 3,000-landing run is pending completion.
+  file contents were preserved. The subsequent 3,000-landing fixed-delay driver failed after 1,514 landings.
+  The real CLI run also failed after 1,260 landings when its bounded retry budget
+  expired. Neither is a passing 3,000-landing result.
 
 The load uses eight agents changing separate small files in one small repository,
 on one Mac. It measures publication and optimistic landing under contention; it
@@ -48,9 +53,12 @@ ancestry problem; it does not by itself prove workload fairness or throughput.
 
 The GitHub workflow builds the client and fork, repeats the distributed test,
 exercises an actual Linux FUSE mount, and separately builds and starts the
-self-host container topology. These CI jobs have not yet run. Locally, deployment
+self-host container topology. The first Linux CI native-and-forge job passed, including an actual FUSE mount
+and 128 distributed landings, on commit `f51728985a`. The container job built its
+images but failed to reach Forgejo health; it did not pass its runtime checks.
+The native-only forge/container update requires fresh CI validation. Locally, deployment
 YAML and Python/shell syntax were inspected; there is no available Docker daemon
-or Linux kernel here. No container or FUSE runtime success is claimed yet.
+or Linux kernel here. No successful full container deployment is claimed yet.
 
 The FUSE view is a read-only snapshot with lazy hydration. Editable workspaces
 use physical sparse files. The single-host Compose example uses TLS-authenticated
@@ -72,9 +80,20 @@ python3 native/scripts/integration.py \
 
 Add `--fuse` on Linux with a usable `/dev/fuse`. All services, credentials and
 data are disposable; the harness cleans up its processes. A failure produces a
-separate report recording completed landings and conflict reasons. Earlier
+separate report recording completed landings and any reported failure reason. Earlier
 failed load attempts remain failures and are not counted as completed runs.
 
 For self-host installation, see [the deployment guide](../deploy/boughline/README.md).
 Keep your existing source history and independently verified backups until a
 staged migration has validated your own workload.
+
+## Sustained contention limit
+
+The 3,000-submission burst exposed starvation at a rapidly moving shared ref.
+The initial fixed-delay test driver lost 150 ref races; replacing it with the
+actual CLI also exhausted that client's 50-attempt randomized retry budget.
+The failure reports are retained alongside this document. Saved changesets are
+immutable and safe to retry; no successful throughput figure is reported for
+those failed runs. The current implementation does not guarantee fair progress
+for every submission during an uninterrupted maximum-rate burst. Production
+capacity for the user's workload remains unproven.

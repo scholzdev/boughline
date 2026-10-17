@@ -151,13 +151,19 @@ func repoAssignment(ctx *context.APIContext, owner *user_model.User, repoName st
 // before their handlers can create a temporary Git clone or mutate a Git ref.
 func nativeRepoAPIGuard(ctx *context.APIContext) {
 	if !ctx.Repo().Repository.IsNative {
+		ctx.Error(http.StatusConflict, "", "this forge serves native Boughline projects only")
 		return
 	}
 	prefix := "/api/v1/repos/" + ctx.Params(":username") + "/" + ctx.Params(":reponame")
 	relative := strings.TrimPrefix(strings.TrimPrefix(ctx.Req.URL.Path, setting.AppSubURL), prefix)
 	first, _, _ := strings.Cut(strings.TrimPrefix(relative, "/"), "/")
 	switch first {
-	case "", "bough", "issues", "labels", "milestones", "projects", "collaborators", "teams", "topics", "subscriptions", "watchers", "stargazers":
+	case "":
+		if ctx.Req.Method != "GET" && ctx.Req.Method != "HEAD" {
+			repo.BoughGitDisabled(ctx)
+		}
+		return
+	case "bough", "issues", "labels", "milestones", "projects", "collaborators", "teams", "topics", "subscriptions", "watchers", "stargazers":
 		return
 	}
 	ctx.Error(http.StatusConflict, "", "use the native Boughline API for this repository")
@@ -842,7 +848,7 @@ func Routes() *web.Route {
 			m.Get("/search", repo.Search)
 
 			// (repo scope)
-			m.Post("/migrate", reqToken(), bind(api.MigrateRepoOptions{}), repo.Migrate)
+			m.Post("/migrate", reqToken(), repo.BoughGitDisabled)
 
 			m.Group("/{username}/{reponame}", func() {
 				m.Post("/bough/initialize", reqToken(), reqAdmin(unit.TypeCode), repo.BoughInitialize)
@@ -1448,9 +1454,9 @@ func Routes() *web.Route {
 				m.Get("/search", admin.SearchEmail)
 			})
 			m.Group("/unadopted", func() {
-				m.Get("", admin.ListUnadoptedRepositories)
-				m.Post("/{username}/{reponame}", admin.AdoptRepository)
-				m.Delete("/{username}/{reponame}", admin.DeleteUnadoptedRepository)
+				m.Get("", repo.BoughGitDisabled)
+				m.Post("/{username}/{reponame}", repo.BoughGitDisabled)
+				m.Delete("/{username}/{reponame}", repo.BoughGitDisabled)
 			})
 			m.Group("/hooks", func() {
 				m.Combo("").Get(admin.ListHooks).

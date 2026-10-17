@@ -28,7 +28,7 @@ jobs:
         working-directory: native
         run: go test -race ./...
       - name: Forgejo integration boundary tests
-        run: go test -tags 'sqlite sqlite_unlock_notify' ./services/boughline ./modules/gitrepo ./routers/api/v1/repo ./routers/private ./routers/web/repo -run '^TestBough'
+        run: go test -tags 'sqlite sqlite_unlock_notify' ./services/boughline ./services/repository ./modules/setting ./modules/gitrepo ./routers/api/v1/repo ./routers/private ./routers/web/repo -run '^TestBough'
       - name: Frontend
         run: |
           npm ci
@@ -54,18 +54,26 @@ jobs:
             --minio "$RUNNER_TEMP/bin/minio" --bough "$RUNNER_TEMP/bin/bough" \
             --forgejo "$RUNNER_TEMP/bin/boughforge" --forgejo-source "$PWD" \
             --fuse --count 128 --output native/ci-integration-result.json
+      - name: Native local web/client workflow and restart
+        run: |
+          for attempt in 1 2; do
+            python3 native/scripts/local.py --cockroach "$RUNNER_TEMP/cockroach-v26.2.7.linux-amd64/cockroach" \
+              --minio "$RUNNER_TEMP/bin/minio" --bough "$RUNNER_TEMP/bin/bough" \
+              --forgejo "$RUNNER_TEMP/bin/boughforge" --state "$RUNNER_TEMP/bough-local" --check
+          done
       - name: Deployment syntax
         env:
           BOUGH_UID: '1000'
           BOUGH_GID: '1000'
         run: |
-          python3 -m py_compile deploy/boughline/init.py native/scripts/integration.py
+          python3 -m py_compile deploy/boughline/init.py native/scripts/integration.py native/scripts/local.py native/scripts/containers.py
           docker compose -f deploy/boughline/compose.yaml config --quiet
       - uses: actions/upload-artifact@v4
-        if: success()
+        if: always()
         with:
           name: boughline-validation
-          path: native/ci-integration-result.json
+          path: native/ci-integration-result*.json
+          if-no-files-found: ignore
 
   self-host-containers:
     runs-on: ubuntu-24.04

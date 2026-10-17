@@ -11,8 +11,9 @@ It is an independent implementation. The article does not publish Scion's wire
 protocol or implementation, so Boughline does not claim binary compatibility.
 No Facebook implementation code is used.
 
-Source history lives in Boughline's native storage. Forgejo's Git database is not
-used for native projects. Ordinary Git projects continue to use Forgejo normally.
+Every project uses Boughline's native storage. This is a native-only forge: Git
+HTTP/SSH serving, Git project creation, pull requests, mirrors, wikis and Forgejo
+Actions are disabled. Use the independent `bough` client for source operations.
 
 ```text
 bough metadata commands ──HTTPS──> Forgejo identity/permission gateway ──> native API
@@ -23,9 +24,11 @@ bough source objects ──Unix socket──> node daemon ──> regional cache
 
 ## Use it
 
+For a local macOS/Linux test without Docker, follow [the local guide](native/LOCAL.md).
+
 Follow [self-hosting](deploy/boughline/README.md) to run your instance, then create
-a native project through Forgejo's API by adding `"boughline": true` to the
-ordinary repository-creation request.
+a project through the web interface or the repository-creation API. Every new
+project is native automatically.
 
 ```sh
 export BOUGH_TOKEN=YOUR_FORGEJO_PERSONAL_ACCESS_TOKEN

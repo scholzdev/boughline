@@ -14,8 +14,8 @@ and object-store replicas on separate hosts when that is required.
 
 CockroachDB and MinIO are separate software with their own licenses. Supply a
 CockroachDB license if its current terms require one for your use. Boughline does
-not obtain or accept a commercial license for you. Existing Forgejo projects
-remain Git projects; create a new native project for migration.
+not obtain or accept a commercial license for you. This binary serves only native projects. Import existing Git history into a new
+native project; existing Git data is never automatically converted or deleted.
 
 ## Initialize and start
 
@@ -56,11 +56,11 @@ the corresponding user/organization scope. Use that PAT to create a native proje
 ```sh
 curl --fail-with-body -X POST https://forge.example.com/api/v1/user/repos \
   -H "Authorization: token $BOUGH_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"name":"my-project","private":true,"boughline":true}'
+  -d '{"name":"my-project","private":true}'
 ```
 
-The same `boughline` option works on the existing organization repository-creation
-API. Native projects start empty on `main`; Git auto-initialization options are
+The organization repository-creation API also creates native projects automatically.
+Projects start empty on `main`; Git auto-initialization options are
 rejected. If the backend was temporarily unavailable during creation, the project
 remains native and blocks Git writes. Retry
 `POST /api/v1/repos/OWNER/NAME/bough/initialize` as its administrator.

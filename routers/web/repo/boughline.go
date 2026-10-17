@@ -14,6 +14,7 @@ import (
 
 	"forgejo.org/models/unit"
 	"forgejo.org/modules/base"
+	"forgejo.org/modules/setting"
 	bough_service "forgejo.org/services/boughline"
 	"forgejo.org/services/context"
 	native "github.com/scholzdev/boughline/native"
@@ -69,6 +70,7 @@ func BoughHome(ctx *context.Context) {
 	ctx.Data["BoughHistoryLink"] = boughLink(link, revision, filename, "history")
 	ctx.Data["BoughBlameLink"] = boughLink(link, revision, filename, "blame")
 	ctx.Data["BoughDiffLink"] = boughLink(link, revision, "", "diff")
+	ctx.Data["BoughClone"] = fmt.Sprintf("bough clone --forgejo %s --owner %s --repo %s %s", strings.TrimRight(setting.AppURL, "/"), ctx.Repo.Repository.OwnerName, ctx.Repo.Repository.Name, ctx.Repo.Repository.Name)
 	ctx.Data["CanWriteCode"] = ctx.Repo.CanWrite(unit.TypeCode) && !ctx.Repo.Repository.IsArchived
 	switch view {
 	case "browse":
@@ -225,4 +227,10 @@ func BoughAction(ctx *context.Context) {
 		return
 	}
 	ctx.Redirect(boughLink(ctx.Repo.RepoLink, revision, "", "browse"))
+}
+
+// BoughSettings exposes project identity and collaboration, without Git settings.
+func BoughSettings(ctx *context.Context) {
+	ctx.Data["BoughID"] = bough_service.ID(ctx.Repo.Repository)
+	ctx.HTML(http.StatusOK, base.TplName("repo/boughline_settings"))
 }

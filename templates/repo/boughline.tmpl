@@ -6,6 +6,7 @@
    <a class="item" href="{{.RepoLink}}">Source</a><a class="item" href="{{.RepoLink}}/issues">Issues</a>
    {{if .Permission.IsAdmin}}<a class="item" href="{{.RepoLink}}/settings">Settings</a>{{end}}
   </nav>
+  <p>Check out with your Boughline client:</p><pre class="ui segment tw-overflow-auto"><code>{{.BoughClone}}</code></pre>
   {{if .Repository.IsArchived}}<p class="ui warning message">This project is archived. Source is read only.</p>{{end}}
   {{if .BoughError}}<p class="ui error message" role="alert">{{.BoughError}}</p>{{end}}
   <form class="ui form" method="get">

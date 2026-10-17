@@ -148,7 +148,7 @@ func loadIndexerFrom(rootCfg ConfigProvider) {
 
 	Indexer.IssueIndexerName = sec.Key("ISSUE_INDEXER_NAME").MustString(Indexer.IssueIndexerName)
 
-	Indexer.RepoIndexerEnabled = sec.Key("REPO_INDEXER_ENABLED").MustBool(false)
+	Indexer.RepoIndexerEnabled = false // native source search is served by Boughline
 	Indexer.RepoIndexerRepoTypes = strings.Split(sec.Key("REPO_INDEXER_REPO_TYPES").MustString("sources,forks,mirrors,templates"), ",")
 	Indexer.RepoIndexerEnableFuzzy = sec.Key("REPO_INDEXER_FUZZY_ENABLED").MustBool(false)
 	Indexer.RepoType = sec.Key("REPO_INDEXER_TYPE").MustString("bleve")

@@ -39,21 +39,7 @@ WORKDIR ${GOPATH}/src/forgejo.org
 
 RUN make clean-no-bindata
 RUN make frontend
-RUN go build contrib/environment-to-ini/environment-to-ini.go && xx-verify environment-to-ini
 RUN LDFLAGS="-buildid=" make FORGEJO_GENERATE_SKIP_HASH=true RELEASE_VERSION=$RELEASE_VERSION GOFLAGS="-trimpath" go-check generate-backend static-executable && xx-verify gitea
-
-# Copy local files
-COPY docker/root /tmp/local
-
-# Set permissions
-RUN chmod 755 /tmp/local/usr/bin/entrypoint \
-              /tmp/local/usr/local/bin/gitea \
-              /tmp/local/etc/s6/gitea/* \
-              /tmp/local/etc/s6/openssh/* \
-              /tmp/local/etc/s6/.s6-svscan/* \
-              /go/src/forgejo.org/gitea \
-              /go/src/forgejo.org/environment-to-ini
-RUN chmod 644 /go/src/forgejo.org/contrib/autocompletion/bash_autocomplete
 
 FROM data.forgejo.org/oci/alpine:3.24
 ARG RELEASE_VERSION
@@ -67,49 +53,14 @@ LABEL org.opencontainers.image.authors="Boughline and Forgejo contributors" \
       org.opencontainers.image.title="Boughline" \
       org.opencontainers.image.description="Self-hosted native source control with a Forgejo-based forge. Independent implementation; not an official Forgejo release."
 
-EXPOSE 22 3000
-
-RUN apk --no-cache add \
-    bash \
-    ca-certificates \
-    curl \
-    gettext \
-    git \
-    linux-pam \
-    openssh \
-    s6 \
-    sqlite \
-    su-exec \
-    gnupg \
-    && rm -rf /var/cache/apk/*
-
-RUN addgroup \
-    -S -g 1000 \
-    git && \
-  adduser \
-    -S -H -D \
-    -h /data/git \
-    -s /bin/bash \
-    -u 1000 \
-    -G git \
-    git && \
-  echo "git:*" | chpasswd -e
-
-RUN mkdir \
-  -p /run/forgejo && \
-  chown git:git /run/forgejo
-
-ENV USER=git
-ENV GITEA_CUSTOM=/data/gitea
-
+EXPOSE 3000
+RUN apk --no-cache add ca-certificates git sqlite su-exec tzdata && \
+    addgroup -S -g 1000 git && \
+    adduser -S -H -D -h /data/git -s /bin/sh -u 1000 -G git git
+ENV USER=git GITEA_CUSTOM=/data/gitea GITEA_WORK_DIR=/data/gitea
+WORKDIR /data/gitea
 VOLUME ["/data"]
-
-ENTRYPOINT ["/usr/bin/entrypoint"]
-CMD ["/usr/bin/s6-svscan", "/etc/s6"]
-
-COPY --from=build-env /tmp/local /
-RUN cd /usr/local/bin ; ln -s gitea forgejo
-COPY --from=build-env /go/src/forgejo.org/gitea /app/gitea/gitea
-RUN ln -s /app/gitea/gitea /app/gitea/forgejo-cli
-COPY --from=build-env /go/src/forgejo.org/environment-to-ini /usr/local/bin/environment-to-ini
-COPY --from=build-env /go/src/forgejo.org/contrib/autocompletion/bash_autocomplete /etc/profile.d/gitea_bash_autocomplete.sh
+COPY --from=build-env /go/src/forgejo.org/gitea /usr/local/bin/forgejo
+COPY deploy/boughline/forge-entrypoint.sh /usr/local/bin/boughline-forge-entrypoint
+ENTRYPOINT ["/bin/sh", "/usr/local/bin/boughline-forge-entrypoint"]
+CMD ["web", "--config", "/data/gitea/conf/app.ini"]

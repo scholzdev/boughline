@@ -693,7 +693,7 @@ func registerRoutes(m *web.Route) {
 		m.Post("/report_abuse", reqSignIn, web.Bind(forms.ReportAbuseForm{}), moderation.CreatePost)
 	}
 
-	m.Get("/pulls", reqSignIn, user.Pulls)
+	m.Get("/pulls", reqSignIn, repo.HTTPGitEnabledHandler)
 	m.Get("/milestones", reqSignIn, reqMilestonesDashboardPageEnabled, user.Milestones)
 
 	// ***** START: User *****
@@ -862,7 +862,7 @@ func registerRoutes(m *web.Route) {
 
 		m.Get("/organization", user_setting.Organization)
 		m.Get("/repos", user_setting.Repos)
-		m.Post("/repos/unadopted", user_setting.AdoptOrDeleteRepository)
+		m.Post("/repos/unadopted", repo.HTTPGitEnabledHandler)
 
 		m.Group("/hooks", func() {
 			m.Get("", user_setting.Webhooks)
@@ -970,7 +970,7 @@ func registerRoutes(m *web.Route) {
 
 		m.Group("/repos", func() {
 			m.Get("", admin.Repos)
-			m.Combo("/unadopted").Get(admin.UnadoptedRepos).Post(admin.AdoptOrDeleteRepository)
+			m.Combo("/unadopted").Get(repo.HTTPGitEnabledHandler).Post(repo.HTTPGitEnabledHandler)
 			m.Post("/delete", admin.DeleteRepo)
 		})
 
@@ -1105,8 +1105,8 @@ func registerRoutes(m *web.Route) {
 			m.Get("/dashboard/{team}", user.Dashboard)
 			m.Get("/issues", user.Issues)
 			m.Get("/issues/{team}", user.Issues)
-			m.Get("/pulls", user.Pulls)
-			m.Get("/pulls/{team}", user.Pulls)
+			m.Get("/pulls", repo.HTTPGitEnabledHandler)
+			m.Get("/pulls/{team}", repo.HTTPGitEnabledHandler)
 			m.Get("/milestones", reqMilestonesDashboardPageEnabled, user.Milestones)
 			m.Get("/milestones/{team}", reqMilestonesDashboardPageEnabled, user.Milestones)
 			m.Post("/members/action/{action}", org.MembersAction)
@@ -1213,8 +1213,8 @@ func registerRoutes(m *web.Route) {
 	m.Group("/repo", func() {
 		m.Get("/create", repo.Create)
 		m.Post("/create", web.Bind(forms.CreateRepoForm{}), repo.CreatePost)
-		m.Get("/migrate", repo.Migrate)
-		m.Post("/migrate", web.Bind(forms.MigrateRepoForm{}), repo.MigratePost)
+		m.Get("/migrate", repo.HTTPGitEnabledHandler)
+		m.Post("/migrate", repo.HTTPGitEnabledHandler)
 		if !setting.Repository.DisableForks {
 			m.Get("/fork/{repoid}", context.RepoIDAssignment(), context.UnitTypes(), reqRepoCodeReader, repo.ForkByID)
 		}
@@ -1280,10 +1280,7 @@ func registerRoutes(m *web.Route) {
 
 	m.Group("/{username}/{reponame}", func() {
 		m.Group("/settings", func() {
-			m.Group("", func() {
-				m.Combo("").Get(repo_setting.Settings).
-					Post(web.Bind(forms.RepoSettingForm{}), repo_setting.SettingsPost)
-			}, repo_setting.SettingsCtxData)
+			m.Get("", repo.BoughSettings)
 			m.Combo("/units").Get(repo_setting.Units).
 				Post(web.Bind(forms.RepoUnitSettingForm{}), repo_setting.UnitsPost)
 			m.Post("/avatar", web.Bind(forms.AvatarForm{}), repo_setting.SettingsAvatar)

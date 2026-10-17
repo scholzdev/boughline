@@ -38,6 +38,7 @@ func loadMirrorFrom(rootCfg ConfigProvider) {
 		log.Fatal("Failed to map Mirror settings: %v", err)
 	}
 
+	Mirror.Enabled = false
 	if !Mirror.Enabled {
 		Mirror.DisableNewPull = true
 		Mirror.DisableNewPush = true

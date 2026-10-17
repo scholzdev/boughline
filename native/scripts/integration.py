@@ -5,7 +5,6 @@ No production repository or credentials are used.
 """
 import argparse
 import concurrent.futures
-import collections
 import threading
 import hashlib
 import json
@@ -38,7 +37,6 @@ def main():
     p.add_argument("--output")
     args = p.parse_args()
     processes, logs, checks = [], [], []
-    conflicts = collections.Counter()
     progress_lock = threading.Lock()
     completed = {"count": 0}
     with tempfile.TemporaryDirectory(prefix="boughline-cluster-") as directory:
@@ -104,26 +102,11 @@ def main():
                        "message": "integration change", "request_id": key or secrets.token_hex(20)}, token=token)["id"]
 
         def land(server, revision):
-            last_fault = None
-            for attempt in range(150):
-                head = api(server, "refs/main")["target"]
-                try:
-                    return api(server, "land", {"ref": "main", "expected": head, "revision": revision,
-                               "request_id": hashlib.sha256((head + revision).encode()).hexdigest()})["id"]
-                except urllib.error.HTTPError as error:
-                    if error.code != 409:
-                        raise
-                    last_fault = json.load(error)
-                    error.close()
-                    reason = last_fault.get("error", "unknown conflict")
-                    with progress_lock:
-                        conflicts[reason] += 1
-                    if reason not in ("ref changed", "review policy changed; retry landing", "reviews changed; retry landing", "reviewer permissions changed; retry landing"):
-                        raise RuntimeError("non-retryable landing conflict: " + json.dumps(last_fault))
-                    if attempt in (31, 63, 127):
-                        print(f"landing {revision[:12]}: {attempt+1} retries; {reason}", flush=True)
-                    time.sleep(.005)
-            raise RuntimeError("landing exhausted 150 retries: " + json.dumps(last_fault))
+            # Sequential setup checks retain HTTP faults for explicit denial
+            # assertions. The concurrent workload below uses the shipped CLI.
+            head = api(server, "refs/main")["target"]
+            return api(server, "land", {"ref": "main", "expected": head, "revision": revision,
+                       "request_id": hashlib.sha256((head + revision).encode()).hexdigest()})["id"]
 
         try:
             sql_processes = []
@@ -343,7 +326,7 @@ ISSUE_INDEXER_TYPE = db
                     except urllib.error.HTTPError as error:
                         detail = error.read(2000).decode(errors="replace")
                         raise RuntimeError(f"Forgejo {route}: HTTP {error.code}: {detail}") from error
-                created = forge_api("user/repos", {"name": "native-project", "boughline": True, "private": False})
+                created = forge_api("user/repos", {"name": "native-project", "private": False})
                 info = forge_api("repos/owner/native-project/bough")
                 gateway = f"repos/owner/native-project/bough/v1/repos/{info['repo']}/"
                 native_head = forge_api(gateway + "refs/main")["target"]
@@ -413,11 +396,11 @@ ISSUE_INDEXER_TYPE = db
                     server = servers[number % 2]
                     head = api(server, "refs/main")["target"]
                     last = commit(server, head, {f"agents/{number}": f"sequence={sequence}\n"}, key=f"load-{sequence}")
-                    land(server, last)
+                    cli("land", "--server", server, "--repo", "test", "--revision", last, cwd=root)
                     with progress_lock:
                         completed["count"] += 1
                         if completed["count"] % 250 == 0:
-                            print(f"landed {completed['count']}/{args.count}; conflicts={dict(conflicts)}", flush=True)
+                            print(f"landed {completed['count']}/{args.count} through bough CLI", flush=True)
                 return last
             with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
                 last = list(pool.map(worker, range(8)))
@@ -435,7 +418,7 @@ ISSUE_INDEXER_TYPE = db
             checks.append(f"{args.count} submissions landed across eight concurrent agents and two API servers")
             report = {"checks": checks, "landings": args.count, "workers": 8, "seconds": round(elapsed, 3),
                       "landings_per_second": round(args.count / elapsed, 3),
-                      "conflicts": dict(conflicts),
+                      "landing_client": "production bough CLI with bounded randomized CAS retry",
                       "topology": "3 CockroachDB nodes, real MinIO, 2 API servers, 2 caches, 3 Unix-socket daemons",
                       "limits": "Small synthetic repository on one Mac; not a production-scale or cross-machine failure proof."}
             if args.output:
@@ -445,7 +428,7 @@ ISSUE_INDEXER_TYPE = db
             print(f"integration failed: {type(failure).__name__}: {failure}", flush=True)
             if args.output:
                 failure_path = Path(args.output).with_name(Path(args.output).stem + "-failure.json")
-                failure_path.write_text(json.dumps({"status": "failed", "error": str(failure), "completed_landings": completed["count"], "conflicts": dict(conflicts), "checks": checks}, indent=2) + "\n")
+                failure_path.write_text(json.dumps({"status": "failed", "error": str(failure), "completed_landings": completed["count"], "landing_client": "bough CLI", "checks": checks}, indent=2) + "\n")
             if isinstance(failure, subprocess.CalledProcessError):
                 print(f"subprocess failed: {failure.stderr.decode() if isinstance(failure.stderr, bytes) else failure.stderr}")
             secrets_to_hide = [v for k, v in env.items() if any(s in k for s in ("TOKEN", "KEY", "SECRET", "PASSWORD", "SEED")) and len(v) > 12]

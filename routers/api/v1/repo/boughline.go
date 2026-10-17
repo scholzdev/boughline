@@ -98,3 +98,8 @@ func BoughProxy(ctx *context.APIContext) {
 	ctx.Resp.WriteHeader(response.StatusCode)
 	_, _ = io.Copy(ctx.Resp, io.LimitReader(response.Body, native.MaxRequest+1))
 }
+
+// BoughGitDisabled rejects legacy project migration without creating Git state.
+func BoughGitDisabled(ctx *context.APIContext) {
+	ctx.Error(http.StatusConflict, "", "Boughline serves native projects only; use the bough client")
+}

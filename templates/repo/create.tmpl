@@ -9,7 +9,7 @@
 				<div class="ui attached segment">
 					{{if or .CanCreateRepo .Orgs}}
 						{{template "base/alert" .}}
-						{{template "repo/create_helper" .}}
+
 
 						{{if and (not .CanCreateRepo) (ne .MaxCreationLimit 0)}}
 							<div class="ui negative message">
@@ -20,27 +20,8 @@
 							{{template "repo/create_basic" .}}
 						</fieldset>
 
-						<fieldset>
-							<legend>
-								{{ctx.Locale.Tr "repo.new_from_template"}}
-								<span class="help">{{ctx.Locale.Tr "repo.new_from_template_description"}}</span>
-							</legend>
-							{{template "repo/create_from_template" .}}
-						</fieldset>
+                        <p>New projects use Boughline native source control. Publish files with the <code>bough</code> client.</p>
 
-						<div id="non_template">
-							<fieldset>
-								<legend>{{ctx.Locale.Tr "repo.auto_init"}}</legend>
-								{{template "repo/create_init" .}}
-							</fieldset>
-
-							<fieldset>
-								<legend>{{ctx.Locale.Tr "repo.new_advanced"}}</legend>
-								<details><summary>{{ctx.Locale.Tr "repo.new_advanced_expand"}}</summary>
-									{{template "repo/create_advanced" .}}
-								</details>
-							</fieldset>
-						</div>
 						<button class="ui primary button">
 							{{ctx.Locale.Tr "repo.create_repo"}}
 						</button>

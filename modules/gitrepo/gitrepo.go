@@ -29,14 +29,11 @@ func wikiPath(repo Repository) string {
 
 // OpenRepository opens the repository at the given relative path with the provided context.
 func OpenRepository(ctx context.Context, repo Repository) (*git.Repository, error) {
-	if native, ok := repo.(interface{ UsesNativeStorage() bool }); ok && native.UsesNativeStorage() {
-		return nil, errors.New("native Boughline repository: use the bough client")
-	}
-	return git.OpenRepository(ctx, repoPath(repo))
+	return nil, errors.New("native Boughline forge: Git source storage is disabled; use the bough client")
 }
 
 func OpenWikiRepository(ctx context.Context, repo Repository) (*git.Repository, error) {
-	return git.OpenRepository(ctx, wikiPath(repo))
+	return nil, errors.New("native Boughline forge: Git wikis are disabled")
 }
 
 // contextKey is a value for use with context.WithValue.
@@ -69,11 +66,6 @@ func (nopCloser) Close() error { return nil }
 
 // RepositoryFromContextOrOpen attempts to get the repository from the context or just opens it
 func RepositoryFromContextOrOpen(ctx context.Context, repo Repository) (*git.Repository, io.Closer, error) {
-	gitRepo := repositoryFromContext(ctx, repo)
-	if gitRepo != nil {
-		return gitRepo, nopCloser(nil), nil
-	}
-
 	gitRepo, err := OpenRepository(ctx, repo)
 	return gitRepo, gitRepo, err
 }

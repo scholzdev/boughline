@@ -141,6 +141,9 @@ func loadSSHFrom(rootCfg ConfigProvider) {
 	SSH.UseProxyProtocol = sec.Key("SSH_SERVER_USE_PROXY_PROTOCOL").MustBool(false)
 
 	// When disable SSH, start builtin server value is ignored.
+	SSH.Disabled = true
+	SSH.StartBuiltinServer = false
+
 	if SSH.Disabled {
 		SSH.StartBuiltinServer = false
 	}

@@ -7,6 +7,24 @@ There is no local source-history database and no local Git repository in a nativ
 workspace. Edits are normal files; publication, ancestry, merges, rebases, history,
 blame and derived indices run on the server.
 
+## What lives on a worker
+
+Anthropic's article says its client maintains a bounded object cache and lays out
+working-copy files on disk. Boughline uses the same distinction: repository
+history, changesets and source-control computations live on the server; cached
+objects and checked-out or edited files can occupy the worker's SSD.
+
+- Metadata/API-only jobs need no source checkout.
+- An editable sparse checkout stores the selected files locally. `commit` uploads
+  changed/new bytes and asks the server to create an immutable changeset. `update`
+  fetches changes explicitly and protects local edits.
+- A Linux virtual snapshot fetches file contents only when read, through bounded
+  client/node caches. It is currently read-only and pins its revision. It is not
+  an editable virtual filesystem, and does not promise zero worker disk use.
+
+No worker maintains a full repository/history database. There is no Git push:
+creating a changeset already publishes it, and `land` separately advances `main`.
+
 ## Workspace commands
 
 Flags precede positional arguments. `BOUGH_TOKEN` is read from the environment

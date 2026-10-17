@@ -136,8 +136,6 @@ func (r Repository) GetOwnerName() string {
 // CreateRepoOption options when creating repository
 // swagger:model
 type CreateRepoOption struct {
-	// Use native Boughline source storage. Git initialization options must be empty.
-	Boughline bool `json:"boughline"`
 	// Name of the repository to create
 	//
 	// required: true

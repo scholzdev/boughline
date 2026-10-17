@@ -20,9 +20,6 @@
 		<a class="{{if .PageIsSettingsAuthorizedIntegrations}}active {{end}}item" href="{{AppSubUrl}}/user/settings/authorized-integrations">
 			{{ctx.Locale.Tr "settings.authorized_integrations"}}
 		</a>
-		<a class="{{if .PageIsSettingsKeys}}active {{end}}item" href="{{AppSubUrl}}/user/settings/keys">
-			{{ctx.Locale.Tr "settings.ssh_gpg_keys"}}
-		</a>
 		{{if .EnableActions}}
 		<details class="item toggleable-item" {{if or .PageIsSharedSettingsRunners .PageIsSharedSettingsSecrets .PageIsSharedSettingsVariables}}open{{end}}>
 			<summary>{{ctx.Locale.Tr "actions.actions"}}</summary>

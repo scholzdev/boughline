@@ -16,7 +16,6 @@ import (
 	"forgejo.org/models/db"
 	git_model "forgejo.org/models/git"
 	"forgejo.org/models/organization"
-	access_model "forgejo.org/models/perm/access"
 	quota_model "forgejo.org/models/quota"
 	repo_model "forgejo.org/models/repo"
 	"forgejo.org/models/unit"
@@ -26,7 +25,6 @@ import (
 	"forgejo.org/modules/git"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/optional"
-	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/storage"
 	api "forgejo.org/modules/structs"
@@ -154,36 +152,15 @@ func getRepoPrivate(ctx *context.Context) bool {
 func Create(ctx *context.Context) {
 	ctx.Data["Title"] = ctx.Tr("new_repo.title")
 
-	// Give default value for template to render.
-	ctx.Data["Gitignores"] = repo_module.Gitignores
-	ctx.Data["LabelTemplateFiles"] = repo_module.LabelTemplateFiles
-	ctx.Data["Licenses"] = repo_module.Licenses
-	ctx.Data["Readmes"] = repo_module.Readmes
-	ctx.Data["readme"] = "Default"
 	ctx.Data["private"] = getRepoPrivate(ctx)
 	ctx.Data["IsForcedPrivate"] = setting.Repository.ForcePrivate
-	ctx.Data["default_branch"] = setting.Repository.DefaultBranch
-
 	ctxUser := checkContextUser(ctx, ctx.FormInt64("org"))
 	if ctx.Written() {
 		return
 	}
 	ctx.Data["ContextUser"] = ctxUser
-
-	ctx.Data["repo_template_name"] = ctx.Tr("repo.template_select")
-	templateID := ctx.FormInt64("template_id")
-	if templateID > 0 {
-		templateRepo, err := repo_model.GetRepositoryByID(ctx, templateID)
-		if err == nil && access_model.CheckRepoUnitUser(ctx, templateRepo, ctxUser, unit.TypeCode) {
-			ctx.Data["repo_template"] = templateID
-			ctx.Data["repo_template_name"] = templateRepo.Name
-		}
-	}
-
 	ctx.Data["CanCreateRepo"] = ctx.Doer.CanCreateRepo()
 	ctx.Data["MaxCreationLimit"] = ctx.Doer.MaxCreationLimit()
-	ctx.Data["SupportedObjectFormats"] = git.SupportedObjectFormats
-	ctx.Data["DefaultObjectFormat"] = git.Sha1ObjectFormat
 
 	ctx.HTML(http.StatusOK, tplCreate)
 }
@@ -225,15 +202,9 @@ func CreatePost(ctx *context.Context) {
 	form := web.GetForm(ctx).(*forms.CreateRepoForm)
 	ctx.Data["Title"] = ctx.Tr("new_repo.title")
 
-	ctx.Data["Gitignores"] = repo_module.Gitignores
-	ctx.Data["LabelTemplateFiles"] = repo_module.LabelTemplateFiles
-	ctx.Data["Licenses"] = repo_module.Licenses
-	ctx.Data["Readmes"] = repo_module.Readmes
-
 	ctx.Data["CanCreateRepo"] = ctx.Doer.CanCreateRepo()
 	ctx.Data["MaxCreationLimit"] = ctx.Doer.MaxCreationLimit()
-	ctx.Data["SupportedObjectFormats"] = git.SupportedObjectFormats
-	ctx.Data["DefaultObjectFormat"] = git.Sha1ObjectFormat
+	ctx.Data["IsForcedPrivate"] = setting.Repository.ForcePrivate
 
 	ctxUser := checkContextUser(ctx, form.UID)
 	if ctx.Written() {
@@ -250,63 +221,18 @@ func CreatePost(ctx *context.Context) {
 		return
 	}
 
-	var repo *repo_model.Repository
-	var err error
-	if form.RepoTemplate > 0 {
-		opts := repo_service.GenerateRepoOptions{
-			Name:            form.RepoName,
-			Description:     form.Description,
-			Private:         form.Private || setting.Repository.ForcePrivate,
-			GitContent:      form.GitContent,
-			Topics:          form.Topics,
-			GitHooks:        form.GitHooks,
-			Webhooks:        form.Webhooks,
-			Avatar:          form.Avatar,
-			IssueLabels:     form.Labels,
-			ProtectedBranch: form.ProtectedBranch,
-		}
-
-		if !opts.IsValid() {
-			ctx.RenderWithErr(ctx.Tr("repo.template.one_item"), tplCreate, form)
-			return
-		}
-
-		templateRepo := getRepository(ctx, form.RepoTemplate)
-		if ctx.Written() {
-			return
-		}
-
-		if !templateRepo.IsTemplate {
-			ctx.RenderWithErr(ctx.Tr("repo.template.invalid"), tplCreate, form)
-			return
-		}
-
-		repo, err = repo_service.GenerateRepository(ctx, ctx.Doer, ctxUser, templateRepo, opts)
-		if err == nil {
-			log.Trace("Repository generated [%d]: %s/%s", repo.ID, ctxUser.Name, repo.Name)
-			ctx.Redirect(repo.Link())
-			return
-		}
-	} else {
-		repo, err = repo_service.CreateRepository(ctx, ctx.Doer, ctxUser, repo_service.CreateRepoOptions{
-			Name:             form.RepoName,
-			Description:      form.Description,
-			Gitignores:       form.Gitignores,
-			IssueLabels:      form.IssueLabels,
-			License:          form.License,
-			Readme:           form.Readme,
-			IsPrivate:        form.Private || setting.Repository.ForcePrivate,
-			DefaultBranch:    form.DefaultBranch,
-			AutoInit:         form.AutoInit,
-			IsTemplate:       form.Template,
-			TrustModel:       repo_model.DefaultTrustModel,
-			ObjectFormatName: form.ObjectFormatName,
-		})
-		if err == nil {
-			log.Trace("Repository created [%d]: %s/%s", repo.ID, ctxUser.Name, repo.Name)
-			ctx.Redirect(repo.Link())
-			return
-		}
+	if form.RepoTemplate > 0 || form.AutoInit || form.Template || form.Gitignores != "" || form.License != "" || form.Readme != "" || form.ObjectFormatName != "" || form.DefaultBranch != "" && form.DefaultBranch != "main" {
+		ctx.RenderWithErr("Create an empty Boughline project, then use the bough client to publish source.", tplCreate, form)
+		return
+	}
+	repo, err := repo_service.CreateRepository(ctx, ctx.Doer, ctxUser, repo_service.CreateRepoOptions{
+		Name: form.RepoName, Description: form.Description,
+		IsPrivate:   form.Private || setting.Repository.ForcePrivate,
+		IssueLabels: form.IssueLabels,
+	})
+	if err == nil {
+		ctx.Redirect(repo.Link())
+		return
 	}
 
 	handleCreateError(ctx, ctxUser, err, "CreatePost", tplCreate, &form)

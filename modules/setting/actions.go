@@ -81,6 +81,9 @@ func loadActionsFrom(rootCfg ConfigProvider) error {
 		return fmt.Errorf("failed to map Actions settings: %v", err)
 	}
 
+	// Git-based Forgejo Actions is not part of the native product.
+	Actions.Enabled = false
+
 	// don't support to read configuration from [actions]
 	Actions.LogStorage, err = getStorage(rootCfg, "actions_log", "", nil)
 	if err != nil {

@@ -1,0 +1,11 @@
+{{template "base/head" .}}
+<main class="page-content repository">
+ {{template "repo/header" .}}
+ <div class="ui container">
+  <h1>Project settings</h1>
+  <dl><dt>Native repository</dt><dd><code>{{.BoughID}}</code></dd><dt>Source control client</dt><dd><code>bough</code></dd></dl>
+  <p><a class="ui button" href="{{.RepoLink}}/settings/collaboration">Manage collaborators</a></p>
+  <p>Use <code>bough grant</code> for directory permissions and <code>bough policy</code> for review requirements.</p>
+ </div>
+</main>
+{{template "base/footer" .}}

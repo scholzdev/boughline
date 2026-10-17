@@ -170,7 +170,7 @@ var (
 		DefaultPushCreatePrivate:                true,
 		MaxCreationLimit:                        -1,
 		PreferredLicenses:                       []string{"Apache-2.0", "MIT"},
-		DisableHTTPGit:                          false,
+		DisableHTTPGit:                          true,
 		AccessControlAllowOrigin:                "",
 		UseCompatSSHURI:                         true,
 		DefaultCloseIssuesViaCommitsInAnyBranch: false,
@@ -181,9 +181,9 @@ var (
 		DefaultForkRepoUnits:                    []string{},
 		DefaultMirrorRepoUnits:                  []string{},
 		PrefixArchiveFiles:                      true,
-		DisableMigrations:                       false,
+		DisableMigrations:                       true,
 		DisableStars:                            false,
-		DisableForks:                            false,
+		DisableForks:                            true,
 		DefaultBranch:                           "main",
 		AllowForkWithoutMaximumLimit:            true,
 
@@ -329,6 +329,18 @@ func loadRepositoryFrom(rootCfg ConfigProvider) {
 	} else if err = rootCfg.Section("repository.pull-request").MapTo(&Repository.PullRequest); err != nil {
 		log.Fatal("Failed to map Repository.PullRequest settings: %v", err)
 	}
+
+	// This binary is a native forge, not a configurable Git hosting mode.
+	Repository.DisableHTTPGit = true
+	Repository.DisableMigrations = true
+	Repository.DisableForks = true
+	Repository.EnablePushCreateUser = false
+	Repository.EnablePushCreateOrg = false
+	Repository.AllowAdoptionOfUnadoptedRepositories = false
+	Repository.AllowDeleteOfUnadoptedRepositories = false
+	Repository.DefaultBranch = "main"
+	Repository.DisabledRepoUnits = append(Repository.DisabledRepoUnits,
+		"repo.pulls", "repo.releases", "repo.wiki", "repo.ext_wiki", "repo.actions", "repo.packages")
 
 	if !rootCfg.Section("packages").Key("ENABLED").MustBool(Packages.Enabled) {
 		Repository.DisabledRepoUnits = append(Repository.DisabledRepoUnits, "repo.packages")

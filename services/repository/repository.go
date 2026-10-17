@@ -22,6 +22,7 @@ import (
 	repo_module "forgejo.org/modules/repository"
 	"forgejo.org/modules/setting"
 	"forgejo.org/modules/structs"
+	bough_service "forgejo.org/services/boughline"
 	notify_service "forgejo.org/services/notify"
 	pull_service "forgejo.org/services/pull"
 )
@@ -41,12 +42,18 @@ type WebSearchResults struct {
 
 // CreateRepository creates a repository for the user/organization.
 func CreateRepository(ctx context.Context, doer, owner *user_model.User, opts CreateRepoOptions) (*repo_model.Repository, error) {
+	if err := bough_service.Configured(); err != nil {
+		return nil, err
+	}
 	repo, err := CreateRepositoryDirectly(ctx, doer, owner, opts)
 	if err != nil {
 		// No need to rollback here we should do this in CreateRepository...
 		return nil, err
 	}
 
+	if err := bough_service.Initialize(ctx, repo); err != nil {
+		return repo, fmt.Errorf("native project created; retry POST /api/v1/repos/OWNER/NAME/bough/initialize: %w", err)
+	}
 	notify_service.CreateRepository(ctx, doer, owner, repo)
 
 	return repo, nil

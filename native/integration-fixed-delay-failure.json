@@ -1,0 +1,22 @@
+{
+  "status": "failed",
+  "error": "landing exhausted 150 retries: {\"error\": \"ref changed\"}",
+  "completed_landings": 1514,
+  "conflicts": {
+    "ref changed": 4152
+  },
+  "checks": [
+    "three-node distributed SQL; two stateless servers share newly published changes immediately",
+    "real CLI: sparse clone, add/edit, native commit, land, update",
+    "workspace monitor observes edits, restorations and new files; stopped monitor falls back to full scanning",
+    "directory IAM filters names/content even on warm shared cache hits",
+    "known blob hash cannot bypass repository/principal upload ownership",
+    "protected landing requires approval of immutable revision by another authorized principal",
+    "failed regional cache is not bypassed; independent region remains available",
+    "node daemon starts from a verified snapshot and serves it while its parent cache is down",
+    "administrator prewarming persists lazy indices and resumes without repeating completed work",
+    "consistent SQL plus immutable objects restore into an independent database and bucket; source and derived integrity verified",
+    "real Forgejo binary: native project creation, permission gateway, read-scoped PAT clone, source UI, blocked Git transport",
+    "one SQL node killed: quorum publication/landing continues, restarted node rejoins with persisted history"
+  ]
+}

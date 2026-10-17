@@ -34,7 +34,13 @@ def main():
             except (urllib.error.URLError, TimeoutError):
                 time.sleep(2)
         else:
-            raise RuntimeError('container Forgejo did not become healthy')
+            diagnostic = subprocess.run([*compose, 'logs', '--no-color', '--tail', '60'], capture_output=True, text=True, timeout=30)
+            detail = diagnostic.stdout + diagnostic.stderr
+            for line in (deployment / '.env').read_text().splitlines():
+                _, value = line.split('=', 1)
+                if len(value) >= 16:
+                    detail = detail.replace(value, '<redacted>')
+            raise RuntimeError('container Forgejo did not become healthy:\n' + detail[-18000:])
         command('exec', '-T', '--user', 'git', 'forge', 'forgejo', 'admin', 'user', 'create',
                 '--config', '/data/gitea/conf/app.ini', '--username', 'ci-owner', '--random-password',
                 '--email', 'ci@example.invalid', '--admin', '--must-change-password=false')
@@ -46,7 +52,7 @@ def main():
                       headers={'Authorization': 'token ' + token, 'Content-Type': 'application/octet-stream' if isinstance(body, bytes) else 'application/json'})
             with opener.open(request, timeout=60) as response:
                 return json.load(response)
-        api('user/repos', {'name': 'native-project', 'boughline': True, 'private': False})
+        api('user/repos', {'name': 'native-project', 'private': False})
         info = api('repos/ci-owner/native-project/bough')
         route = f"repos/ci-owner/native-project/bough/v1/repos/{info['repo']}/"
         head = api(route + 'refs/main')['target']

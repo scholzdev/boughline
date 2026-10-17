@@ -45,12 +45,13 @@ var (
 		LimitSizeVagrant      int64
 		DefaultRPMSignEnabled bool
 	}{
-		Enabled:              true,
+		Enabled:              false,
 		LimitTotalOwnerCount: -1,
 	}
 )
 
 func loadPackagesFrom(rootCfg ConfigProvider) (err error) {
+	defer func() { Packages.Enabled = false }() // no Git-backed Cargo index or package forge
 	sec, _ := rootCfg.GetSection("packages")
 	if sec == nil {
 		Packages.Storage, err = getStorage(rootCfg, "packages", "", nil)
