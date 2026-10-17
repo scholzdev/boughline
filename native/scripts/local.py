@@ -57,6 +57,9 @@ def main():
     for port in ports:
         try:
             with socket.socket() as listener:
+                # Match Go's listener semantics: recently closed connections
+                # may be in TIME_WAIT, but an active listener must still fail.
+                listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 listener.bind(('127.0.0.1', port))
         except OSError:
             parser.error(f'port {port} is busy; stop the other service before starting this instance')

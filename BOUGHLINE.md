@@ -122,3 +122,13 @@ Git HTTP and SSH transports reject all requests before source lookup, including
 legacy repositories and push-to-create. Git storage opening, mirrors, Git source
 search, pull-request/release/wiki/Actions/package units are disabled. Existing
 Git data is retained untouched, but cannot be served by this instance.
+
+The forge's command registry also omits SSH `serv`, Git hooks/keys, Git repository
+backup/restore, Git doctor/conversion, release synchronization and Actions
+commands. Web hosting, account/auth management and identity-database migration
+remain available; source operations and source backups belong to `bough`.
+
+The local launcher passed its first Linux run but rejected an immediate restart:
+its raw port probe treated TCP TIME_WAIT as a live server. The probe now uses
+SO_REUSEADDR like Go's TCP listener, while still rejecting active listeners.
+The CI restart check covers this lifecycle regression.

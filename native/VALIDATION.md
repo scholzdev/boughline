@@ -12,7 +12,8 @@ prototype. Validation date: 2026-10-17.
   directory IAM, review scope/revocation/authorship, blob ownership, cache tier
   authentication, bounded disk caches, and workspace recovery/race regressions.
 - Forgejo boundary tests passed with `-tags 'sqlite sqlite_unlock_notify'` in
-  `services/boughline`, `modules/gitrepo`, `routers/api/v1/repo`,
+  `services/boughline`, `services/repository`, `modules/setting`,
+  `modules/gitrepo`, `routers/api/v1/repo`,
   `routers/private`, and `routers/web/repo`, selecting `^TestBough`.
 - The native-only local launcher passed web login, native web/API creation,
   settings/collaborators, absence of Git clone links/storage, denied Git routes,
@@ -31,7 +32,8 @@ prototype. Validation date: 2026-10-17.
 - The graph/v2 cluster completed 128 landings with eight concurrent workers:
   30.914 seconds, 4.140 landings/second, and 401 retried ref conflicts. Every
   worker's final revision remained an ancestor of the final head and its latest
-  file contents were preserved. The subsequent 3,000-landing fixed-delay driver failed after 1,514 landings.
+  file contents were preserved.
+  The subsequent 3,000-landing fixed-delay driver failed after 1,514 landings.
   The real CLI run also failed after 1,260 landings when its bounded retry budget
   expired. Neither is a passing 3,000-landing result.
 
@@ -53,12 +55,20 @@ ancestry problem; it does not by itself prove workload fairness or throughput.
 
 The GitHub workflow builds the client and fork, repeats the distributed test,
 exercises an actual Linux FUSE mount, and separately builds and starts the
-self-host container topology. The first Linux CI native-and-forge job passed, including an actual FUSE mount
-and 128 distributed landings, on commit `f51728985a`. The container job built its
-images but failed to reach Forgejo health; it did not pass its runtime checks.
-The native-only forge/container update requires fresh CI validation. Locally, deployment
-YAML and Python/shell syntax were inspected; there is no available Docker daemon
-or Linux kernel here. No successful full container deployment is claimed yet.
+self-host container topology. On commit `3e3a02095d`, the Linux distributed
+and actual FUSE checks passed. The local native web/client check passed its first
+run; its immediate restart then failed because the port probe treated TCP
+TIME_WAIT as a busy server. The corrected probe matches Go's socket reuse and
+requires a repeat of that lifecycle check.
+
+The native-only container job on that commit passed: images built, encrypted
+three-node SQL bootstrapped, MinIO stored source objects, native API/cache and
+Forgejo served a new project, and the real host client cloned through its Unix
+node daemon and container cache. Caddy configuration validation passed. See
+[the CI run](https://github.com/scholzdev/boughline/actions/runs/39038027109).
+Public ACME issuance was not exercised. There is no local Docker daemon or Linux
+kernel on the development Mac; Linux runtime claims come from that CI job.
+
 
 The FUSE view is a read-only snapshot with lazy hydration. Editable workspaces
 use physical sparse files. The single-host Compose example uses TLS-authenticated

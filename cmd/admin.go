@@ -25,8 +25,6 @@ func cmdAdmin() *cli.Command {
 		Usage: "Perform common administrative operations",
 		Commands: []*cli.Command{
 			subcmdUser(),
-			subcmdRepoSyncReleases(),
-			subcmdRegenerate(),
 			subcmdAuth(),
 			subcmdSendMail(),
 		},

@@ -7,10 +7,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
-	"forgejo.org/cmd/forgejo"
 	"forgejo.org/modules/log"
 	"forgejo.org/modules/setting"
 
@@ -115,50 +113,16 @@ func prepareWorkPathAndCustomConf(action cli.ActionFunc) func(_ context.Context,
 }
 
 func NewMainApp(version, versionExtra string) *cli.Command {
-	path, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	executable := filepath.Base(path)
+	// Source-control operations belong exclusively to bough. This executable
+	// exposes only the web host and identity/database administration.
+	return innerNewMainApp(version, versionExtra, nil, nil, func() []cli.Flag { return nil })
 
-	subCmdsStandalone := make([]*cli.Command, 0, 10)
-	subCmdWithConfig := make([]*cli.Command, 0, 10)
-	globalFlags := func() []cli.Flag { return []cli.Flag{} }
-
-	//
-	// If the executable is forgejo-cli, provide a Forgejo specific CLI
-	// that is NOT compatible with Gitea.
-	//
-	if executable == "forgejo-cli" {
-		subCmdsStandalone = append(subCmdsStandalone, forgejo.CmdActions(context.Background()))
-		globalFlags = func() []cli.Flag {
-			return []cli.Flag{
-				&cli.BoolFlag{
-					Name: "quiet",
-				},
-				&cli.BoolFlag{
-					Name: "verbose",
-				},
-			}
-		}
-	} else {
-		//
-		// Otherwise provide a Gitea compatible CLI which includes Forgejo
-		// specific additions under the forgejo-cli subcommand. It allows
-		// admins to migration from Gitea to Forgejo by replacing the gitea
-		// binary and rename it to forgejo if they want.
-		//
-		subCmdsStandalone = append(subCmdsStandalone, forgejo.CmdForgejo(context.Background()))
-		subCmdWithConfig = append(subCmdWithConfig, cmdActions())
-	}
-
-	return innerNewMainApp(version, versionExtra, subCmdsStandalone, subCmdWithConfig, globalFlags)
 }
 
 func innerNewMainApp(version, versionExtra string, subCmdsStandaloneArgs, subCmdWithConfigArgs []*cli.Command, globalFlagsArgs func() []cli.Flag) *cli.Command {
 	app := &cli.Command{}
 	app.Name = "forgejo"
-	app.Usage = "Beyond coding. We forge."
+	app.Usage = "Boughline native forge; use bough for source-control operations"
 	app.Description = `By default, forgejo will start serving using the web-server with no argument, which can alternatively be run by running the subcommand "web".`
 	app.Version = version + versionExtra
 	app.EnableShellCompletion = true
@@ -167,18 +131,10 @@ func innerNewMainApp(version, versionExtra string, subCmdsStandaloneArgs, subCmd
 	subCmdWithConfig := []*cli.Command{
 		cmdHelp(), // the "help" sub-command was used to show the more information for "work path" and "custom config"
 		cmdWeb(),
-		cmdServ(),
-		cmdHook(),
-		cmdKeys(),
-		cmdDump(),
 		cmdAdmin(),
 		cmdMigrate(),
-		cmdDoctor(),
 		cmdManager(),
 		cmdEmbedded(),
-		cmdMigrateStorage(),
-		cmdDumpRepository(),
-		cmdRestoreRepository(),
 	}
 
 	subCmdWithConfig = append(subCmdWithConfig, subCmdWithConfigArgs...)
