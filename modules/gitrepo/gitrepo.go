@@ -5,6 +5,7 @@ package gitrepo
 
 import (
 	"context"
+	"errors"
 	"io"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,9 @@ func wikiPath(repo Repository) string {
 
 // OpenRepository opens the repository at the given relative path with the provided context.
 func OpenRepository(ctx context.Context, repo Repository) (*git.Repository, error) {
+	if native, ok := repo.(interface{ UsesNativeStorage() bool }); ok && native.UsesNativeStorage() {
+		return nil, errors.New("native Boughline repository: use the bough client")
+	}
 	return git.OpenRepository(ctx, repoPath(repo))
 }
 

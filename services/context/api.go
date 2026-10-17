@@ -515,6 +515,10 @@ func (ctx *APIContext) NotFound(objs ...any) {
 // you can optional skip the IsEmpty check
 func ReferencesGitRepo(allowEmpty ...bool) func(ctx *APIContext) (cancel context.CancelFunc) {
 	return func(ctx *APIContext) (cancel context.CancelFunc) {
+		if ctx.Repo().Repository.IsNative {
+			ctx.Error(http.StatusConflict, "", "use the native Boughline API")
+			return nil
+		}
 		// Empty repository does not have reference information.
 		if ctx.Repo().Repository.IsEmpty && (len(allowEmpty) == 0 || !allowEmpty[0]) {
 			return nil

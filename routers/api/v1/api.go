@@ -147,6 +147,22 @@ func repoAssignment(ctx *context.APIContext, owner *user_model.User, repoName st
 	ctx.Repo().Owner = owner
 }
 
+// Native projects have one source of truth. Reject all legacy source operations
+// before their handlers can create a temporary Git clone or mutate a Git ref.
+func nativeRepoAPIGuard(ctx *context.APIContext) {
+	if !ctx.Repo().Repository.IsNative {
+		return
+	}
+	prefix := "/api/v1/repos/" + ctx.Params(":username") + "/" + ctx.Params(":reponame")
+	relative := strings.TrimPrefix(strings.TrimPrefix(ctx.Req.URL.Path, setting.AppSubURL), prefix)
+	first, _, _ := strings.Cut(strings.TrimPrefix(relative, "/"), "/")
+	switch first {
+	case "", "bough", "issues", "labels", "milestones", "projects", "collaborators", "teams", "topics", "subscriptions", "watchers", "stargazers":
+		return
+	}
+	ctx.Error(http.StatusConflict, "", "use the native Boughline API for this repository")
+}
+
 func userAssignment(ctx *context.APIContext, userName string) {
 	user, err := user_model.GetUserByName(ctx, userName)
 	if err != nil {
@@ -291,6 +307,14 @@ func reqCommentIssueUnlockedOrCanWrite(idParam string) func(ctx *context.APICont
 // if a token is being used for auth, we check that it contains the required scope
 // if a token is not being used, reqToken will enforce other sign in methods
 func requiredScopeLevel(ctx *context.APIContext) auth_model.AccessTokenScopeLevel {
+	// Native checkout/diff/ancestry RPCs read source even though they carry JSON.
+	if ctx.Req.Method == "POST" && strings.Contains(ctx.Req.URL.Path, "/bough/v1/repos/") {
+		for _, resource := range []string{"/checkout", "/diff", "/merge-base"} {
+			if strings.HasSuffix(ctx.Req.URL.Path, resource) {
+				return auth_model.Read
+			}
+		}
+	}
 	// use the http method to determine the access level
 	requiredScopeLevel := auth_model.Read
 	if ctx.Req.Method == "POST" || ctx.Req.Method == "PUT" || ctx.Req.Method == "PATCH" || ctx.Req.Method == "DELETE" {
@@ -821,6 +845,9 @@ func Routes() *web.Route {
 			m.Post("/migrate", reqToken(), bind(api.MigrateRepoOptions{}), repo.Migrate)
 
 			m.Group("/{username}/{reponame}", func() {
+				m.Post("/bough/initialize", reqToken(), reqAdmin(unit.TypeCode), repo.BoughInitialize)
+				m.Get("/bough", reqRepoReader(unit.TypeCode), repo.BoughInfo)
+				m.Any("/bough/v1/repos/{nativeid}/*", reqRepoReader(unit.TypeCode), repo.BoughProxy)
 				m.Get("/compare/*", reqRepoReader(unit.TypeCode), context.ReferencesGitRepo(true), repo.CompareDiff)
 
 				m.Combo("").Get(reqAnyRepoReader(), repo.Get).
@@ -1127,7 +1154,7 @@ func Routes() *web.Route {
 				})
 
 				m.Get("/{ball_type:tarball|zipball|bundle}/*", reqRepoReader(unit.TypeCode), repo.DownloadArchive)
-			}, repoAndOwnerAssignment("username", "reponame"), repoAccess(), checkTokenPublicOnly())
+			}, repoAndOwnerAssignment("username", "reponame"), repoAccess(), checkTokenPublicOnly(), nativeRepoAPIGuard)
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryRepository))
 
 		// Notifications (requires notifications scope)

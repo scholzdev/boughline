@@ -1,0 +1,11 @@
+.git
+.env
+.bough-cache
+var
+bough
+bough-linux
+*.tar
+*checkpoint*.json
+
+**/__pycache__/
+*.pyc

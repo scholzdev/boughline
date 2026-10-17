@@ -109,3 +109,14 @@ prime/
 
 # Manpage
 /man
+
+# Local Boughline secrets and caches never enter a build context.
+/node_modules
+/deploy/boughline/.env
+/deploy/boughline/state
+/native/.bough-cache
+/native/var
+/native/import-checkpoint.json
+
+**/__pycache__/
+*.pyc

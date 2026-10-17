@@ -690,6 +690,17 @@ func RepoAssignment(ctx *Context) context.CancelFunc {
 		return nil
 	}
 
+	if repo.IsNative {
+		ctx.Data["BranchName"] = repo.DefaultBranch
+		ctx.Data["DisableForks"] = true
+		relative := strings.TrimPrefix(ctx.Link, ctx.Repo.RepoLink)
+		allowed := relative == "" || relative == "/settings" || strings.HasPrefix(relative, "/bough/") || relative == "/issues" || strings.HasPrefix(relative, "/issues/") || relative == "/projects" || strings.HasPrefix(relative, "/projects/") || relative == "/milestones" || relative == "/labels" || relative == "/watchers" || relative == "/stars" || relative == "/settings/collaboration" || strings.HasPrefix(relative, "/settings/collaboration/")
+		if !allowed {
+			ctx.PlainText(http.StatusConflict, "This project uses Boughline. Open its project home or use the bough client.")
+		}
+		return nil
+	}
+
 	gitRepo, err := gitrepo.OpenRepository(ctx, repo)
 	if err != nil {
 		if strings.Contains(err.Error(), "repository does not exist") || strings.Contains(err.Error(), "no such file or directory") {
@@ -975,6 +986,9 @@ func getRefName(ctx *Base, repo *Repository, pathType RepoRefType) string {
 // of repository reference
 func RepoRefByType(refType RepoRefType, ignoreNotExistErr ...bool) func(*Context) context.CancelFunc {
 	return func(ctx *Context) (cancel context.CancelFunc) {
+		if ctx.Repo.Repository.IsNative {
+			return nil
+		}
 		if ctx.Repo.Repository.IsBeingCreated() {
 			return nil // no git repo, so do nothing
 		}

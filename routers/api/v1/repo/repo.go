@@ -33,6 +33,7 @@ import (
 	"forgejo.org/modules/web"
 	"forgejo.org/routers/api/v1/utils"
 	actions_service "forgejo.org/services/actions"
+	bough_service "forgejo.org/services/boughline"
 	"forgejo.org/services/context"
 	"forgejo.org/services/convert"
 	"forgejo.org/services/issue"
@@ -255,6 +256,18 @@ func Search(ctx *context.APIContext) {
 
 // CreateUserRepo create a repository for a user
 func CreateUserRepo(ctx *context.APIContext, owner *user_model.User, opt api.CreateRepoOption) {
+	if opt.Boughline && (opt.AutoInit || opt.Template || opt.Gitignores != "" || opt.License != "" || opt.Readme != "" || opt.DefaultBranch != "" && opt.DefaultBranch != "main") {
+		ctx.Error(http.StatusBadRequest, "", "native repositories start empty on main; import Git history with bough import-git")
+		return
+	}
+	if opt.Boughline {
+		if err := bough_service.Configured(); err != nil {
+			ctx.Error(http.StatusServiceUnavailable, "Boughline", err)
+			return
+		}
+		opt.DefaultBranch = "main"
+	}
+
 	if opt.AutoInit && opt.Readme == "" {
 		opt.Readme = "Default"
 	}
@@ -266,6 +279,7 @@ func CreateUserRepo(ctx *context.APIContext, owner *user_model.User, opt api.Cre
 	}
 
 	repo, err := repo_service.CreateRepository(ctx, ctx.Doer(), owner, repo_service.CreateRepoOptions{
+		IsNative:         opt.Boughline,
 		Name:             opt.Name,
 		Description:      opt.Description,
 		IssueLabels:      opt.IssueLabels,
@@ -292,6 +306,12 @@ func CreateUserRepo(ctx *context.APIContext, owner *user_model.User, opt api.Cre
 		return
 	}
 
+	if opt.Boughline {
+		if err = bough_service.Initialize(ctx, repo); err != nil {
+			ctx.Error(http.StatusServiceUnavailable, "native project created; retry POST /repos/{owner}/{name}/bough/initialize", err)
+			return
+		}
+	}
 	// reload repo from db to get a real state after creation
 	repo, err = repo_model.GetRepositoryByID(ctx, repo.ID)
 	if err != nil {

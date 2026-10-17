@@ -184,6 +184,10 @@ func ServCommand(ctx *context.PrivateContext) {
 		}
 	}
 
+	if repoExist && repo.IsNative && !results.IsWiki {
+		ctx.JSON(http.StatusConflict, private.Response{UserMsg: "Use the bough client for this native Boughline repository."})
+		return
+	}
 	if repoExist {
 		repo.Owner = owner
 		repo.OwnerName = ownerName

@@ -1,0 +1,37 @@
+{{template "base/head" .}}
+<main class="page-content repository">
+ <div class="ui container">
+  <h1><a href="{{.RepoLink}}">{{.Repository.FullName}}</a> <span class="ui label">Boughline</span></h1>
+  <nav class="ui secondary menu" aria-label="Project navigation">
+   <a class="item" href="{{.RepoLink}}">Source</a><a class="item" href="{{.RepoLink}}/issues">Issues</a>
+   {{if .Permission.IsAdmin}}<a class="item" href="{{.RepoLink}}/settings">Settings</a>{{end}}
+  </nav>
+  {{if .Repository.IsArchived}}<p class="ui warning message">This project is archived. Source is read only.</p>{{end}}
+  {{if .BoughError}}<p class="ui error message" role="alert">{{.BoughError}}</p>{{end}}
+  <form class="ui form" method="get">
+   <div class="fields">
+    <div class="eight wide field"><label for="revision">Revision or ref</label><input id="revision" name="revision" value="{{.BoughRevision}}"></div>
+    <div class="six wide field"><label for="path">Path</label><input id="path" name="path" value="{{.BoughPath}}"></div>
+    <div class="two wide field"><label for="view">View</label><select id="view" name="view"><option value="browse">Source</option><option value="diff" {{if eq .BoughView "diff"}}selected{{end}}>Diff</option><option value="history" {{if eq .BoughView "history"}}selected{{end}}>History</option><option value="blame" {{if eq .BoughView "blame"}}selected{{end}}>Blame</option></select></div>
+   </div>
+   {{if eq .BoughView "diff"}}<div class="field"><label for="base">Compare from</label><input id="base" name="base" value="{{.BoughBase}}"></div>{{end}}
+   <button class="ui button" type="submit">Open</button>
+  </form>
+  <form class="ui form tw-my-4" method="get"><input type="hidden" name="revision" value="{{.BoughRevision}}"><input type="hidden" name="view" value="search"><div class="field"><label for="query">Find a path</label><div class="ui action input"><input id="query" name="q" value="{{.BoughQuery}}" minlength="3" required><button class="ui button" type="submit">Search</button></div></div></form>
+  {{if .BoughParent}}<p><a href="{{.BoughParent}}">Parent directory</a></p>{{end}}
+  {{if .BoughFile}}<p><a href="{{.BoughHistoryLink}}">History</a> · <a href="{{.BoughBlameLink}}">Blame</a> · {{.BoughFile.Size}} bytes</p>{{if .BoughTruncated}}<p>Open this large file with the bough client.</p>{{else if .BoughBinary}}<p>Binary file. Open it with the bough client.</p>{{else}}<pre class="ui segment tw-overflow-auto"><code>{{.BoughText}}</code></pre>{{end}}{{end}}
+  {{if .BoughEntries}}<table class="ui table"><thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Bytes</th></tr></thead><tbody>{{range .BoughEntries}}<tr><td><a href="{{.Href}}">{{.Name}}</a></td><td>{{.Kind}}</td><td>{{.Size}}</td></tr>{{end}}</tbody></table>{{end}}
+  {{range .BoughPatches}}<h2>{{.Path}}</h2><pre class="ui segment tw-overflow-auto"><code>{{.Text}}</code></pre>{{end}}
+  {{if .BoughHistory}}<table class="ui table"><thead><tr><th scope="col">Revision</th><th scope="col">File</th></tr></thead><tbody>{{range .BoughHistory}}<tr><td><a href="{{$.RepoLink}}?revision={{.Commit}}&amp;view=diff">{{.Commit}}</a></td><td>{{if .File}}{{.File.ID}}{{else}}Deleted{{end}}</td></tr>{{end}}</tbody></table>{{end}}
+  {{if .BoughLines}}<table class="ui table"><thead><tr><th scope="col">Line</th><th scope="col">Revision</th><th scope="col">Content</th></tr></thead><tbody>{{range .BoughLines}}<tr><td>{{.Number}}</td><td><a href="{{$.RepoLink}}?revision={{.Commit}}&amp;view=diff">{{.Commit}}</a>:{{.Original}}</td><td><pre>{{.Text}}</pre></td></tr>{{end}}</tbody></table>{{end}}
+  {{if .BoughNext}}<p><a class="ui button" href="{{.BoughNext}}">Next page</a></p>{{end}}
+  <p><a href="{{.BoughDiffLink}}">Compare this revision with main</a></p>
+  {{if .IsSigned}}<div class="tw-flex tw-gap-2 tw-my-4">
+   <form method="post" action="{{.RepoLink}}/bough/review">{{.CsrfTokenHtml}}<input type="hidden" name="revision" value="{{.BoughRevision}}"><input type="hidden" name="approve" value="true"><button class="ui button" type="submit">Approve this revision</button></form>
+   <form method="post" action="{{.RepoLink}}/bough/review">{{.CsrfTokenHtml}}<input type="hidden" name="revision" value="{{.BoughRevision}}"><input type="hidden" name="approve" value="false"><button class="ui button" type="submit">Retract approval</button></form>
+   {{if .CanWriteCode}}<form method="post" action="{{.RepoLink}}/bough/land">{{.CsrfTokenHtml}}<input type="hidden" name="revision" value="{{.BoughRevision}}"><button class="ui primary button" type="submit">Land on main</button></form>{{end}}
+  </div>{{end}}
+  <details><summary>Changeset details</summary><pre class="tw-overflow-auto">{{.BoughChange}}</pre></details>
+ </div>
+</main>
+{{template "base/footer" .}}

@@ -57,16 +57,15 @@ RUN chmod 644 /go/src/forgejo.org/contrib/autocompletion/bash_autocomplete
 
 FROM data.forgejo.org/oci/alpine:3.24
 ARG RELEASE_VERSION
-LABEL maintainer="contact@forgejo.org" \
-      org.opencontainers.image.authors="Forgejo" \
-      org.opencontainers.image.url="https://forgejo.org" \
-      org.opencontainers.image.documentation="https://forgejo.org/download/#container-image" \
-      org.opencontainers.image.source="https://codeberg.org/forgejo/forgejo" \
+LABEL org.opencontainers.image.authors="Boughline and Forgejo contributors" \
+      org.opencontainers.image.url="https://github.com/scholzdev/boughline" \
+      org.opencontainers.image.documentation="https://github.com/scholzdev/boughline/blob/main/deploy/boughline/README.md" \
+      org.opencontainers.image.source="https://github.com/scholzdev/boughline" \
       org.opencontainers.image.version="${RELEASE_VERSION}" \
-      org.opencontainers.image.vendor="Forgejo" \
+      org.opencontainers.image.vendor="Boughline" \
       org.opencontainers.image.licenses="GPL-3.0-or-later" \
-      org.opencontainers.image.title="Forgejo. Beyond coding. We forge." \
-      org.opencontainers.image.description="Forgejo is a self-hosted lightweight software forge. Easy to install and low maintenance, it just does the job."
+      org.opencontainers.image.title="Boughline" \
+      org.opencontainers.image.description="Self-hosted native source control with a Forgejo-based forge. Independent implementation; not an official Forgejo release."
 
 EXPOSE 22 3000
 

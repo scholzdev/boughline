@@ -1,0 +1,109 @@
+# Linux single-server deployment. All backend listeners use loopback. Caddy is
+# the only public listener. Three SQL nodes here provide the distributed SQL
+# implementation; put nodes on separate hosts for host-failure tolerance.
+name: boughline
+x-sql: &sql
+  image: cockroachdb/cockroach:v26.2.7
+  network_mode: host
+  restart: unless-stopped
+  user: "${BOUGH_UID}:${BOUGH_GID}"
+  environment:
+    COCKROACH_SKIP_ENABLING_DIAGNOSTIC_REPORTING: "true"
+x-native: &native
+  image: boughline-native:local
+  network_mode: host
+  restart: unless-stopped
+  user: "${BOUGH_UID}:${BOUGH_GID}"
+x-api-env: &api-env
+  BOUGH_SQL_URL: postgresql://bough@127.0.0.1:26257/boughline?sslmode=verify-full&sslrootcert=/sql/ca.crt&sslcert=/sql/client.bough.crt&sslkey=/sql/client.bough.key
+  BOUGH_S3_ENDPOINT: 127.0.0.1:9000
+  BOUGH_S3_TLS: "false"
+  BOUGH_S3_BUCKET: boughline
+  BOUGH_S3_ACCESS_KEY: "${S3_ACCESS_KEY}"
+  BOUGH_S3_SECRET_KEY: "${S3_SECRET_KEY}"
+  BOUGH_SIGNING_SEED: "${BOUGH_SIGNING_SEED}"
+  BOUGH_ADMIN_TOKEN: "${BOUGH_ADMIN_TOKEN}"
+  BOUGH_OWNER: operator
+  BOUGH_CACHE_KEY: "${BOUGH_CACHE_KEY}"
+  BOUGH_FORGEJO_SECRET: "${BOUGH_FORGEJO_SECRET}"
+x-cache-env: &cache-env
+  BOUGH_PUBLIC_KEY: "${BOUGH_PUBLIC_KEY}"
+  BOUGH_CACHE_KEY: "${BOUGH_CACHE_KEY}"
+  BOUGH_DAEMON_KEY: "${BOUGH_DAEMON_KEY}"
+services:
+  sql1:
+    <<: *sql
+    command: [start, --listen-addr=127.0.0.1:26257, --http-addr=127.0.0.1:8081, "--join=127.0.0.1:26257,127.0.0.1:26258,127.0.0.1:26259", --certs-dir=/certs, --cache=256MiB, --max-sql-memory=256MiB]
+    volumes: ["./state/sql1:/cockroach/cockroach-data", "./state/certs/nodes:/certs:ro"]
+  sql2:
+    <<: *sql
+    command: [start, --listen-addr=127.0.0.1:26258, --http-addr=127.0.0.1:8082, "--join=127.0.0.1:26257,127.0.0.1:26258,127.0.0.1:26259", --certs-dir=/certs, --cache=256MiB, --max-sql-memory=256MiB]
+    volumes: ["./state/sql2:/cockroach/cockroach-data", "./state/certs/nodes:/certs:ro"]
+  sql3:
+    <<: *sql
+    command: [start, --listen-addr=127.0.0.1:26259, --http-addr=127.0.0.1:8083, "--join=127.0.0.1:26257,127.0.0.1:26258,127.0.0.1:26259", --certs-dir=/certs, --cache=256MiB, --max-sql-memory=256MiB]
+    volumes: ["./state/sql3:/cockroach/cockroach-data", "./state/certs/nodes:/certs:ro"]
+  sql-init:
+    <<: *sql
+    restart: "no"
+    depends_on: [sql1, sql2, sql3]
+    entrypoint: [/bin/sh, /init.sh]
+    volumes: ["./state/certs/root:/certs:ro", "./sql-init.sh:/init.sh:ro"]
+  objects:
+    image: boughline-minio:local
+    build: {context: ., dockerfile: minio.Dockerfile}
+    network_mode: host
+    restart: unless-stopped
+    user: "${BOUGH_UID}:${BOUGH_GID}"
+    command: [server, /data, --address, "127.0.0.1:9000", --console-address, "127.0.0.1:9001"]
+    environment: {MINIO_ROOT_USER: "${S3_ACCESS_KEY}", MINIO_ROOT_PASSWORD: "${S3_SECRET_KEY}"}
+    volumes: ["./state/objects:/data"]
+  bootstrap:
+    <<: *native
+    restart: "no"
+    depends_on:
+      sql-init: {condition: service_completed_successfully}
+      objects: {condition: service_started}
+    environment: *api-env
+    entrypoint: [/bin/sh, /bootstrap.sh]
+    volumes: ["./state/certs/client:/sql:ro", "./bootstrap.sh:/bootstrap.sh:ro"]
+  api1:
+    <<: *native
+    build: {context: ../../native}
+    depends_on: {bootstrap: {condition: service_completed_successfully}}
+    environment: *api-env
+    command: [server, --listen, "127.0.0.1:8712"]
+    volumes: ["./state/certs/client:/sql:ro"]
+  api2:
+    <<: *native
+    depends_on: {bootstrap: {condition: service_completed_successfully}}
+    environment: *api-env
+    command: [server, --listen, "127.0.0.1:8715"]
+    volumes: ["./state/certs/client:/sql:ro"]
+  cache1:
+    <<: *native
+    depends_on: [api1]
+    environment: *cache-env
+    command: [cache, --listen, "127.0.0.1:8713", --parent, "http://127.0.0.1:8712", --cache, /cache]
+    volumes: ["./state/cache1:/cache"]
+  cache2:
+    <<: *native
+    depends_on: [api2]
+    environment: *cache-env
+    command: [cache, --listen, "127.0.0.1:8714", --parent, "http://127.0.0.1:8715", --cache, /cache]
+    volumes: ["./state/cache2:/cache"]
+  forge:
+    image: boughline-forge:local
+    build: {context: ../.., dockerfile: Dockerfile}
+    network_mode: host
+    restart: unless-stopped
+    depends_on: [api1]
+    environment: {USER_UID: "${BOUGH_UID}", USER_GID: "${BOUGH_GID}"}
+    volumes: ["./state/forgejo:/data"]
+  web:
+    image: caddy:2.10.2
+    network_mode: host
+    restart: unless-stopped
+    depends_on: [forge, cache1, cache2]
+    environment: {BOUGH_DOMAIN: "${BOUGH_DOMAIN}", BOUGH_CACHE_DOMAIN: "${BOUGH_CACHE_DOMAIN}", ACME_EMAIL: "${ACME_EMAIL}"}
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro", "./state/caddy:/data", "./state/caddy-config:/config"]

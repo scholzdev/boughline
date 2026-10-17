@@ -129,7 +129,7 @@ const (
 	RepositoryBroken                                  // repository is in a permanently broken state
 )
 
-// Repository represents a git repository.
+// Repository represents a hosted project with Git or native Boughline source storage.
 type Repository struct {
 	ID                  int64 `xorm:"pk autoincr"`
 	OwnerID             int64 `xorm:"UNIQUE(s) index"`
@@ -154,6 +154,7 @@ type Repository struct {
 	NumClosedProjects   int `xorm:"NOT NULL DEFAULT 0"`
 	NumOpenProjects     int `xorm:"-"`
 
+	IsNative   bool `xorm:"NOT NULL DEFAULT false"`
 	IsPrivate  bool `xorm:"INDEX"`
 	IsEmpty    bool `xorm:"INDEX"`
 	IsArchived bool `xorm:"INDEX"`
@@ -201,6 +202,9 @@ func (repo *Repository) BeforeInsert() {
 func init() {
 	db.RegisterModel(new(Repository))
 }
+
+// UsesNativeStorage lets the transport boundary reject Git operations.
+func (repo *Repository) UsesNativeStorage() bool { return repo.IsNative }
 
 func (repo *Repository) GetName() string {
 	return repo.Name
@@ -628,12 +632,12 @@ func (repo *Repository) IsOwnedBy(userID int64) bool {
 
 // CanCreateBranch returns true if repository meets the requirements for creating new branches.
 func (repo *Repository) CanCreateBranch() bool {
-	return !repo.IsMirror
+	return !repo.IsMirror && !repo.IsNative
 }
 
 // CanEnablePulls returns true if repository meets the requirements of accepting pulls.
 func (repo *Repository) CanEnablePulls() bool {
-	return !repo.IsMirror && !repo.IsEmpty
+	return !repo.IsNative && !repo.IsMirror && !repo.IsEmpty
 }
 
 // AllowsPulls returns true if repository meets the requirements of accepting pulls and has them enabled.
@@ -643,7 +647,7 @@ func (repo *Repository) AllowsPulls(ctx context.Context) bool {
 
 // CanEnableEditor returns true if repository meets the requirements of web editor.
 func (repo *Repository) CanEnableEditor() bool {
-	return !repo.IsMirror
+	return !repo.IsMirror && !repo.IsNative
 }
 
 // DescriptionHTML does special handles to description and return HTML string.

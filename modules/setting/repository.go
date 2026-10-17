@@ -35,6 +35,9 @@ var SSHInstanceKey ssh.PublicKey
 // Repository settings
 var (
 	Repository = struct {
+		BoughlineURL                            string `ini:"BOUGHLINE_URL"`
+		BoughlineSecret                         string `ini:"BOUGHLINE_SECRET"`
+		BoughlineCAFile                         string `ini:"BOUGHLINE_CA_FILE"`
 		DetectedCharsetsOrder                   []string
 		DetectedCharsetScore                    map[string]int `ini:"-"`
 		AnsiCharset                             string

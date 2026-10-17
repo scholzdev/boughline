@@ -28,6 +28,7 @@ import (
 
 // CreateRepoOptions contains the create repository options
 type CreateRepoOptions struct {
+	IsNative         bool
 	Name             string
 	Description      string
 	OriginalURL      string
@@ -228,6 +229,7 @@ func CreateRepositoryDirectly(ctx context.Context, doer, u *user_model.User, opt
 		Description:                     opts.Description,
 		OriginalURL:                     opts.OriginalURL,
 		OriginalServiceType:             opts.GitServiceType,
+		IsNative:                        opts.IsNative,
 		IsPrivate:                       opts.IsPrivate,
 		IsFsckEnabled:                   !opts.IsMirror,
 		IsTemplate:                      opts.IsTemplate,
@@ -250,7 +252,7 @@ func CreateRepositoryDirectly(ctx context.Context, doer, u *user_model.User, opt
 		}
 
 		// No need for init mirror.
-		if opts.IsMirror {
+		if opts.IsMirror || opts.IsNative {
 			return nil
 		}
 

@@ -1,0 +1,22 @@
+[Unit]
+Description=Boughline shared node object daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=bough
+Group=bough-clients
+EnvironmentFile=/etc/boughline/daemon.env
+RuntimeDirectory=boughline
+RuntimeDirectoryMode=0750
+CacheDirectory=boughline
+ExecStart=/usr/local/bin/bough daemon --socket /run/boughline/daemon.sock --parent ${BOUGH_PARENT_URL} --cache /var/cache/boughline
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

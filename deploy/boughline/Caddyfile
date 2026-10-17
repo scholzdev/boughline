@@ -1,0 +1,9 @@
+{
+ email {$ACME_EMAIL}
+}
+{$BOUGH_DOMAIN} {
+ reverse_proxy 127.0.0.1:3000
+}
+{$BOUGH_CACHE_DOMAIN} {
+ reverse_proxy 127.0.0.1:8713 127.0.0.1:8714
+}

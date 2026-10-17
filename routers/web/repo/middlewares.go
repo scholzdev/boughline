@@ -18,7 +18,7 @@ import (
 
 // SetEditorconfigIfExists set editor config as render variable
 func SetEditorconfigIfExists(ctx *context.Context) {
-	if ctx.Repo.Repository.IsEmpty {
+	if ctx.Repo.Repository.IsEmpty || ctx.Repo.Repository.IsNative {
 		return
 	}
 

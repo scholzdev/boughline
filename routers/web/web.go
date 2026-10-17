@@ -1416,6 +1416,8 @@ func registerRoutes(m *web.Route) {
 		m.Get("/-/summary-card", repo.DrawRepoSummaryCard)
 	}, ignSignIn, context.RepoAssignment, context.UnitTypes()) // for "/{username}/{reponame}" which doesn't require authentication
 
+	m.Post("/{username}/{reponame}/bough/{operation:review|land}", reqSignIn, context.RepoAssignment, context.UnitTypes(), repo.BoughAction)
+
 	// Grouping for those endpoints that do require authentication
 	m.Group("/{username}/{reponame}", func() {
 		if !setting.Repository.DisableForks {

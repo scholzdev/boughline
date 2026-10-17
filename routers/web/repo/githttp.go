@@ -120,6 +120,10 @@ func httpBase(ctx *context.Context) *serviceHandler {
 		repoExist = false
 	}
 
+	if repoExist && repo.IsNative && !isWiki {
+		ctx.PlainText(http.StatusConflict, "Use the bough client for this native Boughline repository.")
+		return nil
+	}
 	// Don't allow pushing if the repo is archived
 	if repoExist && repo.IsArchived && !isPull {
 		ctx.PlainText(http.StatusForbidden, "This repo is archived. You can view files and clone it, but cannot push or open issues/pull-requests.")

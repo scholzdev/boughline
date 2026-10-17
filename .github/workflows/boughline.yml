@@ -1,0 +1,97 @@
+name: Boughline
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-and-forge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.27.2
+          cache-dependency-path: |
+            go.sum
+            native/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Native race tests
+        working-directory: native
+        run: go test -race ./...
+      - name: Forgejo integration boundary tests
+        run: go test -tags 'sqlite sqlite_unlock_notify' ./services/boughline ./modules/gitrepo ./routers/api/v1/repo ./routers/private ./routers/web/repo -run '^TestBough'
+      - name: Frontend
+        run: |
+          npm ci
+          make frontend > "$RUNNER_TEMP/frontend.log" 2>&1 || { tail -80 "$RUNNER_TEMP/frontend.log"; exit 1; }
+      - name: Build native and Forgejo executables
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          go -C native build -o "$RUNNER_TEMP/bin/bough" ./cmd/bough
+          go build -tags 'sqlite sqlite_unlock_notify' -o "$RUNNER_TEMP/bin/boughforge" .
+      - name: Integration dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fuse3
+          sudo modprobe fuse || true
+          test -c /dev/fuse || sudo mknod -m 666 /dev/fuse c 10 229
+          sudo chmod 666 /dev/fuse
+          curl -fsSL https://binaries.cockroachdb.com/cockroach-v26.2.7.linux-amd64.tgz -o "$RUNNER_TEMP/cockroach.tgz"
+          tar -xzf "$RUNNER_TEMP/cockroach.tgz" -C "$RUNNER_TEMP"
+          GOBIN="$RUNNER_TEMP/bin" go install github.com/minio/minio@v0.0.0-20260212201848-7aac2a2c5b7c
+      - name: Real distributed stores, Forgejo gateway, backup/restore, and Linux FUSE
+        run: |
+          python3 native/scripts/integration.py --cockroach "$RUNNER_TEMP/cockroach-v26.2.7.linux-amd64/cockroach" \
+            --minio "$RUNNER_TEMP/bin/minio" --bough "$RUNNER_TEMP/bin/bough" \
+            --forgejo "$RUNNER_TEMP/bin/boughforge" --forgejo-source "$PWD" \
+            --fuse --count 128 --output native/ci-integration-result.json
+      - name: Deployment syntax
+        env:
+          BOUGH_UID: '1000'
+          BOUGH_GID: '1000'
+        run: |
+          python3 -m py_compile deploy/boughline/init.py native/scripts/integration.py
+          docker compose -f deploy/boughline/compose.yaml config --quiet
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: boughline-validation
+          path: native/ci-integration-result.json
+
+  self-host-containers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      COMPOSE_PARALLEL_LIMIT: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Initialize private instance configuration
+        run: python3 deploy/boughline/init.py --domain boughline.localhost --cache-domain cache.localhost --email ci@example.invalid
+      - name: Build and start backend containers
+        working-directory: deploy/boughline
+        run: docker compose up -d --build sql1 sql2 sql3 objects bootstrap api1 api2 cache1 cache2 forge
+      - name: Exercise self-host instance and real client
+        run: python3 native/scripts/containers.py
+      - name: Check HTTPS proxy configuration
+        working-directory: deploy/boughline
+        run: docker compose run --rm --no-deps web caddy adapt --validate --config /etc/caddy/Caddyfile > /dev/null
+      - name: Stop disposable instance
+        if: always()
+        working-directory: deploy/boughline
+        run: docker compose down --timeout 15
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: boughline-container-validation
+          path: native/container-integration-result.json
