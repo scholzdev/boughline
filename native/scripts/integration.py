@@ -9,6 +9,7 @@ import threading
 import hashlib
 import json
 import os
+import platform
 from pathlib import Path
 import secrets
 import socket
@@ -420,7 +421,8 @@ ISSUE_INDEXER_TYPE = db
                       "landings_per_second": round(args.count / elapsed, 3),
                       "landing_client": "production bough CLI with bounded randomized CAS retry",
                       "topology": "3 CockroachDB nodes, real MinIO, 2 API servers, 2 caches, 3 Unix-socket daemons",
-                      "limits": "Small synthetic repository on one Mac; not a production-scale or cross-machine failure proof."}
+                      "host": {"os": platform.system(), "architecture": platform.machine()},
+                      "limits": "Small synthetic repository on one host; not a production-scale or cross-machine failure proof."}
             if args.output:
                 Path(args.output).write_text(json.dumps(report, indent=2) + "\n")
             print(json.dumps(report, indent=2))

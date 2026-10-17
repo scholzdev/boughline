@@ -55,19 +55,22 @@ ancestry problem; it does not by itself prove workload fairness or throughput.
 
 The GitHub workflow builds the client and fork, repeats the distributed test,
 exercises an actual Linux FUSE mount, and separately builds and starts the
-self-host container topology. On commit `3e3a02095d`, the Linux distributed
-and actual FUSE checks passed. The local native web/client check passed its first
-run; its immediate restart then failed because the port probe treated TCP
-TIME_WAIT as a busy server. The corrected probe matches Go's socket reuse and
-requires a repeat of that lifecycle check.
+self-host container topology. Both jobs passed on commit `5103d10211` in
+[the final CI run](https://github.com/scholzdev/boughline/actions/runs/39038680049).
 
-The native-only container job on that commit passed: images built, encrypted
-three-node SQL bootstrapped, MinIO stored source objects, native API/cache and
-Forgejo served a new project, and the real host client cloned through its Unix
-node daemon and container cache. Caddy configuration validation passed. See
-[the CI run](https://github.com/scholzdev/boughline/actions/runs/39038027109).
-Public ACME issuance was not exercised. There is no local Docker daemon or Linux
-kernel on the development Mac; Linux runtime claims come from that CI job.
+The native job passed race and boundary tests, frontend/backend builds, real
+Linux FUSE, distributed storage/recovery checks, native web/API/client operations,
+and immediate restart against retained state. Its eight-worker workload completed
+128 landings in 20.562 seconds (6.225/second), with final ancestry and content
+checks. These are small synthetic single-host results, not production capacity.
+
+The container job built and started the full recipe: encrypted three-node SQL,
+MinIO, native API/cache and Forgejo. The real host client cloned through a Unix
+node daemon and container cache. Caddy configuration validation passed. Public
+ACME issuance was not exercised. The archived report's "one Mac" limit label was
+a hard-coded reporting string; that job ran on Ubuntu Linux. Future reports record
+the actual OS/architecture and say "one host". Linux runtime evidence comes from
+CI; the development Mac has no local Docker daemon or Linux kernel.
 
 
 The FUSE view is a read-only snapshot with lazy hydration. Editable workspaces
